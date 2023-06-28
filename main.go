@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -17,8 +18,14 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
+	db, err := initStore()
+	if err != nil {
+		log.Fatalf("failed to initialise the store: %s", err)
+	}
+	defer db.Close()
+
 	e.GET("/", func(c echo.Context) error {
-		return c.HTML(http.StatusOK, "Hello, Docker! <3\n")
+		return rootHandler(db, c)
 	})
 
 	e.GET("/ping", func(c echo.Context) error {
