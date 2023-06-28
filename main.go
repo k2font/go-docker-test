@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 
 	"github.com/cenkalti/backoff"
+	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
@@ -38,6 +40,10 @@ func main() {
 	}
 
 	e.Logger.Fatal(e.Start(":" + httpPort))
+}
+
+type Message struct {
+	Value string `json:"value"`
 }
 
 func initStore() (*sql.DB, error) {
@@ -78,6 +84,32 @@ func rootHandler(db *sql.DB, c echo.Context) error {
 		return c.HTML(http.StatusInternalServerError, err.Error())
 	}
 	return c.HTML(http.StatusOK, fmt.Sprintf("Hello, Docker! <3\n", r))
+}
+
+func sendHandler(db *sql.DB, c echo.Context) error {
+	m := &Message{}
+
+	if err := c.Bind(m); err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	err := crdb.ExecuteTx(context.Background(), db, nil,
+		func(tx *sql.Tx) error {
+			_, err := tx.Exec(
+				"INSERT INTO message (value) VALUES ($1) ON CONFLICT (value) DO UPDATE SET value = excluded.value",
+				m.Value,
+			)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, err)
+			}
+			return nil
+		})
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	return c.JSON(http.StatusOK, m)
 }
 
 func countRecords(db *sql.DB) (int, error) {
