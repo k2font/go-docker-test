@@ -27,7 +27,7 @@ func main() {
 
 	httpPort := os.Getenv("HTTP_PORT")
 	if httpPort == "" {
-		httpPort = "8081"
+		httpPort = "8082"
 	}
 
 	e.Logger.Fatal(e.Start(":" + httpPort))
@@ -63,4 +63,16 @@ func initStore() (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func rootHandler(db *sql.DB, c echo.Context) error {
+	r, err := countRecords(db) // TODO: レコードカウント関数を実装
+	if err != nil {
+		return c.HTML(http.StatusInternalServerError, err.Error())
+	}
+	return c.HTML(http.StatusOK, fmt.Sprintf("Hello, Docker! <3\n", r))
+}
+
+func countRecords(db *sql.DB) (int, error) {
+	return 1, nil // dummy
 }
